@@ -15,7 +15,9 @@ import (
 // Repository = penyimpanan transaksi (didefinisikan oleh consumer).
 type Repository interface {
 	List(ctx context.Context, ownerID string) ([]domain.Transaction, error)
+	Get(ctx context.Context, ownerID, id string) (domain.Transaction, error)
 	Create(ctx context.Context, t domain.Transaction) error
+	Update(ctx context.Context, t domain.Transaction) error
 	Delete(ctx context.Context, ownerID, id string) error
 }
 
@@ -51,9 +53,29 @@ func (uc *Usecase) Create(ctx context.Context, ownerID string, p domain.Params) 
 	return t, nil
 }
 
+// Update mengubah sebagian field transaksi. Sama seperti Create, budget tidak
+// memblokir di sini.
+func (uc *Usecase) Update(ctx context.Context, ownerID, id string, patch domain.Patch) (domain.Transaction, error) {
+	t, err := uc.repo.Get(ctx, ownerID, id)
+	if err != nil {
+		return domain.Transaction{}, wrap(err)
+	}
+	if err := t.Apply(patch); err != nil {
+		return domain.Transaction{}, err
+	}
+	if err := uc.repo.Update(ctx, t); err != nil {
+		return domain.Transaction{}, wrap(err)
+	}
+	return t, nil
+}
+
 // Delete menghapus satu transaksi.
 func (uc *Usecase) Delete(ctx context.Context, ownerID, id string) error {
-	err := uc.repo.Delete(ctx, ownerID, id)
+	return wrap(uc.repo.Delete(ctx, ownerID, id))
+}
+
+// wrap memberi jenis HTTP pada error domain.
+func wrap(err error) error {
 	if errors.Is(err, domain.ErrNotFound) {
 		return apperror.NotFound(err)
 	}

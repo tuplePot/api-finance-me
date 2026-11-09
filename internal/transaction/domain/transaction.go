@@ -55,18 +55,8 @@ type Params struct {
 
 // New memvalidasi p lalu membuat Transaction.
 func New(id, ownerID string, p Params, now time.Time) (Transaction, error) {
-	p.Category = strings.TrimSpace(p.Category)
-	p.Note = strings.TrimSpace(p.Note)
-
-	v := validator.New()
-	v.Check(p.Type.Valid(), "type", "must be income or expense")
-	v.Check(p.Amount > 0, "amount", "must be greater than 0")
-	v.Check(p.Amount <= MaxAmount, "amount", "is too large")
-	v.Check(p.Category != "", "category", "is required")
-	v.Check(utf8.RuneCountInString(p.Category) <= maxCategoryLen, "category", "is too long")
-	v.Check(!p.Date.IsZero(), "date", "is required")
-	v.Check(utf8.RuneCountInString(p.Note) <= maxNoteLen, "note", "must be 200 characters or fewer")
-	if err := v.Err(); err != nil {
+	p, err := validate(p)
+	if err != nil {
 		return Transaction{}, err
 	}
 
@@ -80,4 +70,57 @@ func New(id, ownerID string, p Params, now time.Time) (Transaction, error) {
 		Note:      p.Note,
 		CreatedAt: now,
 	}, nil
+}
+
+// Patch = perubahan sebagian. Field nil = tidak diubah; Note "" = hapus catatan.
+type Patch struct {
+	Type     *Type
+	Amount   *int64
+	Category *string
+	Date     *time.Time
+	Note     *string
+}
+
+// Apply menerapkan patch lalu memvalidasi ulang seluruh transaksi.
+// t tidak berubah jika validasi gagal.
+func (t *Transaction) Apply(patch Patch) error {
+	p := Params{Type: t.Type, Amount: t.Amount, Category: t.Category, Date: t.Date, Note: t.Note}
+	if patch.Type != nil {
+		p.Type = *patch.Type
+	}
+	if patch.Amount != nil {
+		p.Amount = *patch.Amount
+	}
+	if patch.Category != nil {
+		p.Category = *patch.Category
+	}
+	if patch.Date != nil {
+		p.Date = *patch.Date
+	}
+	if patch.Note != nil {
+		p.Note = *patch.Note
+	}
+
+	p, err := validate(p)
+	if err != nil {
+		return err
+	}
+	t.Type, t.Amount, t.Category, t.Date, t.Note = p.Type, p.Amount, p.Category, p.Date, p.Note
+	return nil
+}
+
+// validate merapikan (trim) lalu memeriksa p.
+func validate(p Params) (Params, error) {
+	p.Category = strings.TrimSpace(p.Category)
+	p.Note = strings.TrimSpace(p.Note)
+
+	v := validator.New()
+	v.Check(p.Type.Valid(), "type", "must be income or expense")
+	v.Check(p.Amount > 0, "amount", "must be greater than 0")
+	v.Check(p.Amount <= MaxAmount, "amount", "is too large")
+	v.Check(p.Category != "", "category", "is required")
+	v.Check(utf8.RuneCountInString(p.Category) <= maxCategoryLen, "category", "is too long")
+	v.Check(!p.Date.IsZero(), "date", "is required")
+	v.Check(utf8.RuneCountInString(p.Note) <= maxNoteLen, "note", "must be 200 characters or fewer")
+	return p, v.Err()
 }

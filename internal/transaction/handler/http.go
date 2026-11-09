@@ -20,6 +20,7 @@ import (
 type Usecase interface {
 	List(ctx context.Context, ownerID string) ([]domain.Transaction, error)
 	Create(ctx context.Context, ownerID string, p domain.Params) (domain.Transaction, error)
+	Update(ctx context.Context, ownerID, id string, patch domain.Patch) (domain.Transaction, error)
 	Delete(ctx context.Context, ownerID, id string) error
 }
 
@@ -32,6 +33,7 @@ func New(uc Usecase) *Handler { return &Handler{uc: uc} }
 func (h *Handler) Routes(r chi.Router) {
 	r.Get("/transactions", h.list)
 	r.Post("/transactions", h.create)
+	r.Patch("/transactions/{id}", h.update)
 	r.Delete("/transactions/{id}", h.delete)
 }
 
@@ -43,6 +45,15 @@ type createRequest struct {
 	Category string `json:"category"`
 	Date     string `json:"date"`
 	Note     string `json:"note"`
+}
+
+// updateRequest = PATCH: field yang tidak dikirim tidak diubah; note "" = hapus.
+type updateRequest struct {
+	Type     *string `json:"type"`
+	Amount   *int64  `json:"amount"`
+	Category *string `json:"category"`
+	Date     *string `json:"date"`
+	Note     *string `json:"note"`
 }
 
 type transactionDTO struct {
@@ -106,6 +117,38 @@ func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpserver.OK(w, http.StatusCreated, "Transaction created", toDTO(t))
+}
+
+func (h *Handler) update(w http.ResponseWriter, r *http.Request) {
+	var req updateRequest
+	if err := httpserver.DecodeJSON(w, r, &req); err != nil {
+		httpserver.WriteError(w, err)
+		return
+	}
+	patch := domain.Patch{
+		Amount:   req.Amount,
+		Category: req.Category,
+		Note:     req.Note,
+	}
+	if req.Type != nil {
+		typ := domain.Type(*req.Type)
+		patch.Type = &typ
+	}
+	if req.Date != nil {
+		date, err := clock.ParseDate(*req.Date)
+		if err != nil {
+			httpserver.WriteError(w, apperror.Invalid(errors.New("Date must be yyyy-mm-dd"),
+				map[string]string{"date": "must be yyyy-mm-dd"}))
+			return
+		}
+		patch.Date = &date
+	}
+	t, err := h.uc.Update(r.Context(), owner.From(r.Context()), chi.URLParam(r, "id"), patch)
+	if err != nil {
+		httpserver.WriteError(w, err)
+		return
+	}
+	httpserver.OK(w, http.StatusOK, "Transaction updated", toDTO(t))
 }
 
 func (h *Handler) delete(w http.ResponseWriter, r *http.Request) {

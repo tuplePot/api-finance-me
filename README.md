@@ -73,6 +73,7 @@ karena tampil langsung di UI.
 | GET | `/health` | – | tanpa API key; cek koneksi DB |
 | GET | `/api/transactions` | – | terbaru dulu |
 | POST | `/api/transactions` | `{type, amount, category, date, note?}` | `date` = `yyyy-mm-dd` |
+| PATCH | `/api/transactions/{id}` | `{type?, amount?, category?, date?, note?}` | field yang tidak dikirim tidak diubah; `note: ""` menghapus catatan |
 | DELETE | `/api/transactions/{id}` | – | |
 | GET | `/api/budgets` | – | |
 | POST | `/api/budgets` | `{category, period, limit}` | `period` = `weekly` \| `monthly`; 1 budget per kategori |
