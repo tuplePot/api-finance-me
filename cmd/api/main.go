@@ -27,10 +27,16 @@ import (
 	challengehandler "financial-tracker/internal/challenge/handler"
 	challengerepo "financial-tracker/internal/challenge/repository"
 	challengeuc "financial-tracker/internal/challenge/usecase"
+	habithandler "financial-tracker/internal/habit/handler"
+	habitrepo "financial-tracker/internal/habit/repository"
+	habituc "financial-tracker/internal/habit/usecase"
 	"financial-tracker/internal/shared/clock"
 	transactionhandler "financial-tracker/internal/transaction/handler"
 	transactionrepo "financial-tracker/internal/transaction/repository"
 	transactionuc "financial-tracker/internal/transaction/usecase"
+	wishlisthandler "financial-tracker/internal/wishlist/handler"
+	wishlistrepo "financial-tracker/internal/wishlist/repository"
+	wishlistuc "financial-tracker/internal/wishlist/usecase"
 	"financial-tracker/migrations"
 	"financial-tracker/platform/config"
 	"financial-tracker/platform/httpserver"
@@ -75,6 +81,8 @@ func run() error {
 	transactions := transactionhandler.New(transactionuc.New(transactionrepo.NewPostgres(pool), clk))
 	budgets := budgethandler.New(budgetuc.New(budgetrepo.NewPostgres(pool), clk))
 	challenges := challengehandler.New(challengeuc.New(challengerepo.NewPostgres(pool), clk))
+	habits := habithandler.New(habituc.New(habitrepo.NewPostgres(pool), clk))
+	wishlist := wishlisthandler.New(wishlistuc.New(wishlistrepo.NewPostgres(pool), clk))
 
 	// ---- 4. Router ----
 	r := httpserver.NewRouter(httpserver.Options{Logger: log, CORSOrigins: cfg.CORSOrigins})
@@ -92,6 +100,8 @@ func run() error {
 		transactions.Routes(api)
 		budgets.Routes(api)
 		challenges.Routes(api)
+		habits.Routes(api)
+		wishlist.Routes(api)
 	})
 
 	// ---- 5. Jalankan server + graceful shutdown ----

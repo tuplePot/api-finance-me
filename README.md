@@ -83,6 +83,13 @@ karena tampil langsung di UI.
 | POST | `/api/challenges` | `{title, temptation{name,price}, goal{name,price}, targetAmount, deadline}` | |
 | DELETE | `/api/challenges/{id}` | – | log ikut terhapus |
 | POST | `/api/challenges/{id}/logs` | `{kind}` | `skip` \| `slip`; 409 jika sudah selesai |
+| GET | `/api/habits` | – | urut waktu dibuat |
+| POST | `/api/habits` | `{name, icon, cost, frequency, since}` | `frequency` = `daily` \| `weekly` \| `monthly`; `since` = `yyyy-mm-dd` |
+| PATCH | `/api/habits/{id}` | `{name?, icon?, cost?, frequency?, since?}` | field yang tidak dikirim tidak diubah |
+| DELETE | `/api/habits/{id}` | – | |
+| GET | `/api/wishlist` | – | termurah dulu |
+| POST | `/api/wishlist` | `{name, price}` | |
+| DELETE | `/api/wishlist/{id}` | – | |
 
 Uang = bigint Rupiah utuh (tidak pernah float).
 
@@ -93,6 +100,9 @@ Uang = bigint Rupiah utuh (tidak pernah float).
 - Saat target tercapai → `success`. Baris challenge dikunci
   (`SELECT … FOR UPDATE`), jadi klik ganda / request bersamaan tidak saling
   menimpa `savedAmount` dan tidak bisa mencatat setelah challenge selesai.
+- Habit ("habits I don't have") hanya menyimpan biaya per periode dan tanggal
+  `since`. Uang yang tersimpan dihitung frontend (biaya per hari × jumlah hari
+  sejak `since`), jadi tidak perlu job harian.
 - Budget hanya menyimpan batas; pemakaian dihitung dari transaksi. Server
   tidak memblokir pengeluaran yang melebihi budget — frontend memperingatkan
   dulu dan user bisa memilih "Save anyway".
@@ -108,6 +118,8 @@ internal/
   transaction/   pemasukan / pengeluaran
   budget/        batas pengeluaran per kategori (weekly / monthly)
   challenge/     saving challenge + log skip/slip
+  habit/         habit yang tidak kamu punya (rokok, vape, jajan)
+  wishlist/      barang incaran — satuan konversi uang tersimpan
   shared/        apperror, validator, clock (zona waktu), owner (context)
 platform/        config, logger, postgres, httpserver
 ```
